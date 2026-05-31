@@ -1,0 +1,135 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tiktic"
+version = "0.1.0"
+description = "Personal resale ticket monitor for sold-out shows. CashorTrade priority + full history + interactive decisions."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.12"
+authors = [
+  { name = "Markus Cantor", email = "mjsofl@users.noreply.github.com" },
+]
+keywords = [
+  "tickets",
+  "resale",
+  "concert",
+  "cashortrade",
+  "ticketmaster",
+  "monitoring",
+  "cli",
+  "telegram",
+  "discord",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Utilities",
+  "Typing :: Typed",
+]
+
+dependencies = [
+  "typer[all]>=0.12.0",
+  "rich>=13.7.0",
+  "pydantic>=2.7.0",
+  "pydantic-settings>=2.3.0",
+  "httpx>=0.27.0",
+  "tenacity>=8.3.0",
+  "aiosqlite>=0.20.0",
+  "playwright>=1.44.0",
+  "structlog>=24.2.0",
+  "python-dateutil>=2.9.0",
+  "geopy>=2.4.0",
+  # Notifications (optional but recommended)
+  "aiogram>=3.7.0",      # Telegram
+  "discord.py>=2.3.0",   # Discord (or we can use webhook-only lighter dep later)
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.4.0",
+  "mypy>=1.10.0",
+  "pytest>=8.2.0",
+  "pytest-asyncio>=0.23.0",
+  "respx>=0.21.0",
+  "syrupy>=4.6.0",
+  "pre-commit>=3.7.0",
+  "types-python-dateutil>=2.9.0",
+]
+
+[project.scripts]
+tiktic = "tiktic.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/mjsofl/tiktic"
+Repository = "https://github.com/mjsofl/tiktic"
+Issues = "https://github.com/mjsofl/tiktic/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tiktic"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+  "E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "TCH", "PTH", "RUF",
+]
+ignore = [
+  "E501",   # line length handled by formatter
+  "B008",   # do not perform function calls in argument defaults (common with Typer)
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+show_error_codes = true
+namespace_packages = true
+
+[[tool.mypy.overrides]]
+module = [
+  "playwright.*",
+  "aiogram.*",
+  "discord.*",
+  "geopy.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-ra -q --strict-markers"
+markers = [
+  "integration: marks tests as integration (may hit real APIs or browsers - opt-in)",
+  "slow: marks tests as slow",
+]
+
+[tool.coverage.run]
+source = ["src/tiktic"]
+branch = true
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
