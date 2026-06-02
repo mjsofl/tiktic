@@ -228,3 +228,17 @@ class Storage:
         )
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Quick stats for the dashboard."""
+        assert self._conn is not None
+
+        cur = await self._conn.execute("SELECT COUNT(*) as total FROM listings")
+        total = (await cur.fetchone())["total"]
+
+        cur = await self._conn.execute(
+            "SELECT COUNT(*) as cnt FROM listings WHERE current_price_usd > 100"
+        )
+        above = (await cur.fetchone())["cnt"]
+
+        return {"total_listings": total, "above_cap_100": above}

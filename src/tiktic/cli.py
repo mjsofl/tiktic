@@ -60,37 +60,41 @@ def run(
         "--dry-run",
         help="Do everything except actually send notifications or interact with external services. Great for testing.",
     ),
+    headless: bool = typer.Option(
+        True,
+        "--headless/--no-headless",
+        help="Run browser clients (CashorTrade) headlessly. Use --no-headless for debugging the scraper.",
+    ),
 ) -> None:
     """
     Start the foreground monitor loop.
 
     This is the main v0.1 way to run tiktic. It will:
-    - Load your config (location, price cap, watches, notifier tokens)
+    - Load your config (or use seeded defaults for "Angine de Poitrine")
     - Poll your enabled sources (CashorTrade first!)
-    - Apply geo + price-cap filters
-    - Show a beautiful live Rich table of everything it's tracking
-    - Send notifications (Discord / Telegram) ONLY for listings under your hard cap
-    - Let you make interactive decisions when deals appear
+    - Apply the hard price cap ($100 by default)
+    - Persist EVERY listing + full price history to SQLite (even those above the cap)
+    - Show a beautiful live Rich dashboard/table of recent activity and stats
 
     Press Ctrl+C to stop gracefully. All state is persisted to SQLite.
 
     This is intentionally a foreground process in v0.1. Background service,
     Docker, and scheduling come later once the core loop + decision UX are solid.
     """
-    console.print(
-        Panel.fit(
-            "[bold yellow]tiktic run[/bold yellow] — foreground monitor starting\n\n"
-            f"Config: [cyan]{config}[/cyan]\n"
-            f"Dry run: [cyan]{dry_run}[/cyan]\n\n"
-            "[dim]This is where the magic will happen in v0.1.\n"
-            "Poll loop + Rich live dashboard + notifier dispatch coming soon.[/dim]",
-            title="Not yet implemented (scaffold)",
-            border_style="yellow",
+    import asyncio
+
+    from tiktic.services.monitor import run_monitor
+
+    try:
+        asyncio.run(
+            run_monitor(
+                config_path=config,
+                dry_run=dry_run,
+                headless=headless,
+            )
         )
-    )
-    console.print(
-        "[yellow]For now this is a placeholder. Real implementation lives in services/monitor.py.[/yellow]"
-    )
+    except KeyboardInterrupt:
+        console.print("\n[bold red]Interrupted by user.[/bold red]")
 
 
 @app.command()
@@ -135,13 +139,14 @@ def init(
     - Hard $100 price cap
     - CashorTrade + Ticketmaster + SeatGeek enabled
     """
-    console.print(
-        Panel.fit(
-            "Would create a beautifully commented example config.toml here.\n"
-            "Includes the seeded 'Angine de Poitrine' watch + all approved geo/price defaults.",
-            title="init placeholder",
-        )
-    )
+    from tiktic.config import create_example_config
+
+    try:
+        path = create_example_config(force=force)
+        console.print(f"[green]Created example config at {path}[/green]")
+        console.print("Edit it, then run [bold]tiktic run[/bold]")
+    except FileExistsError as e:
+        console.print(f"[red]{e}[/red]")
 
 
 @app.command("seed-watch")
