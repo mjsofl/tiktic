@@ -146,9 +146,16 @@ cashortrade_enabled = true
 ticketmaster_enabled = true
 seatgeek_enabled = true
 
-# Notifiers will be added in a future step.
-# [notifiers]
-# enabled = ["console"]   # or "discord", "telegram"
+[notifiers]
+# Which notifiers to use. "console" is always added automatically for the dashboard.
+enabled = ["console", "discord", "telegram"]
+
+# For Discord: create a webhook in your server (Channel settings > Integrations > Webhooks)
+# discord_webhook_url = "https://discord.com/api/webhooks/123456/abcdef..."
+
+# For Telegram: create a bot with @BotFather, then get your chat id (message @userinfobot or the bot)
+# telegram_bot_token = "123456:ABC-DEF..."
+# telegram_chat_id = "123456789"   # or -100123456789 for a group
 """
 
     target.parent.mkdir(parents=True, exist_ok=True)

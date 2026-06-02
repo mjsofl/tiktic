@@ -53,14 +53,17 @@ class TikticMonitor:
         config: AppConfig | None = None,
         storage_path: str = "data/tiktic.db",
         headless: bool = True,
+        dry_run: bool = False,
     ) -> None:
         self.config = config or load_app_config()
         self.storage_path = storage_path
         self.headless = headless
+        self.dry_run = dry_run
 
         self.storage: Storage | None = None
         self.evaluator: DealEvaluator | None = None
         self.clients: list[Any] = []
+        self.notifiers: list[Any] = []
 
         self._shutdown_event = asyncio.Event()
         self._poll_count = 0
@@ -105,6 +108,41 @@ class TikticMonitor:
         if not self.clients:
             console.print("[yellow]Warning: No clients enabled in config![/yellow]")
 
+        # Notifiers
+        self.notifiers = []
+
+        # Always include console for visibility in the terminal
+        from tiktic.notifications.console import ConsoleNotifier
+        self.notifiers.append(ConsoleNotifier())
+        console.print("[green]✓ Console notifier enabled[/green]")
+
+        notifier_cfg = self.config.notifiers
+        enabled = [e.lower() for e in notifier_cfg.enabled]
+
+        if "discord" in enabled and notifier_cfg.discord_webhook_url:
+            from tiktic.notifications.discord import DiscordNotifier
+            try:
+                dn = DiscordNotifier(webhook_url=notifier_cfg.discord_webhook_url)
+                self.notifiers.append(dn)
+                console.print("[green]✓ Discord notifier enabled (webhook)[/green]")
+            except Exception as e:
+                console.print(f"[red]Failed to init Discord notifier: {e}[/red]")
+
+        if "telegram" in enabled and notifier_cfg.telegram_bot_token and notifier_cfg.telegram_chat_id:
+            from tiktic.notifications.telegram import TelegramNotifier
+            try:
+                tn = TelegramNotifier(
+                    bot_token=notifier_cfg.telegram_bot_token,
+                    chat_id=notifier_cfg.telegram_chat_id,
+                )
+                self.notifiers.append(tn)
+                console.print("[green]✓ Telegram notifier enabled[/green]")
+            except Exception as e:
+                console.print(f"[red]Failed to init Telegram notifier: {e}[/red]")
+
+        if self.dry_run:
+            console.print("[yellow]DRY RUN mode: External notifications will be skipped (only console).[/yellow]")
+
         console.print(
             f"[dim]Poll interval: ~{self.config.poll_interval_seconds}s "
             f"(with jitter). Hard cap: ${self.config.watch.price.cap_usd}[/dim]\n"
@@ -119,6 +157,12 @@ class TikticMonitor:
                 await client.close()
             except Exception as e:
                 console.print(f"[red]Error closing client: {e}[/red]")
+
+        for notifier in self.notifiers:
+            try:
+                await notifier.close()
+            except Exception as e:
+                console.print(f"[red]Error closing notifier: {e}[/red]")
 
         if self.storage:
             await self.storage.close()
@@ -235,15 +279,26 @@ class TikticMonitor:
         # Prepare data for the live dashboard using actual listings from this poll
         self._update_dashboard_data(result.all_seen, len(result.deals))
 
-        # In v0.1 we don't send real notifications yet.
-        # We just log the deals.
-        for deal in result.deals[:3]:  # don't spam
-            listing = deal.listing
-            console.print(
-                f"    [bold green]DEAL[/bold green] {listing.event.artist} @ "
-                f"{listing.event.venue} — ${listing.price_usd} (qty {listing.quantity}) "
-                f"[{listing.platform.value}]"
-            )
+        # Send real notifications (unless dry run)
+        if result.deals:
+            for deal in result.deals:
+                for notifier in self.notifiers:
+                    try:
+                        if self.dry_run and notifier.name != "console":
+                            console.print(f"    [yellow][DRY RUN][/yellow] Would send to {notifier.name}")
+                            continue
+                        await notifier.send_deal(deal)
+                    except Exception as e:
+                        console.print(f"    [red]Failed to send via {notifier.name}: {e}[/red]")
+
+            # Also log a summary to console for the live session
+            for deal in result.deals[:3]:
+                listing = deal.listing
+                console.print(
+                    f"    [bold green]DEAL[/bold green] {listing.event.artist} @ "
+                    f"{listing.event.venue} — ${listing.price_usd} (qty {listing.quantity}) "
+                    f"[{listing.platform.value}]  → sent to notifiers"
+                )
 
     def _update_dashboard_data(self, listings: list[Listing], deals_this_poll: int) -> None:
         """Update the data structure used by the Rich live view."""
@@ -335,6 +390,7 @@ async def run_monitor(
         config=config,
         storage_path="data/tiktic.db",
         headless=headless,
+        dry_run=dry_run,
     )
 
     await monitor.run()
