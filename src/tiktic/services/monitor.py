@@ -119,12 +119,27 @@ class TikticMonitor:
         notifier_cfg = self.config.notifiers
         enabled = [e.lower() for e in notifier_cfg.enabled]
 
-        if "discord" in enabled and notifier_cfg.discord_webhook_url:
+        if "discord" in enabled:
             from tiktic.notifications.discord import DiscordNotifier
             try:
-                dn = DiscordNotifier(webhook_url=notifier_cfg.discord_webhook_url)
+                # Prefer bot token + channel from config (or the known channel ID)
+                discord_token = notifier_cfg.discord_bot_token
+                discord_channel_id = notifier_cfg.discord_channel_id or 1512744295310823474
+
+                if not discord_token:
+                    # Fallback: try environment variable for security
+                    import os
+                    discord_token = os.getenv("DISCORD_BOT_TOKEN")
+
+                if not discord_token:
+                    raise ValueError("No discord_bot_token provided in config or DISCORD_BOT_TOKEN env var")
+
+                dn = DiscordNotifier(token=discord_token, channel_id=discord_channel_id)
                 self.notifiers.append(dn)
-                console.print("[green]✓ Discord notifier enabled (webhook)[/green]")
+                console.print(f"[green]✓ Discord notifier enabled (bot, channel {discord_channel_id})[/green]")
+
+                # Start the Discord bot in the background so slash commands and button interactions work
+                asyncio.create_task(dn.start())
             except Exception as e:
                 console.print(f"[red]Failed to init Discord notifier: {e}[/red]")
 

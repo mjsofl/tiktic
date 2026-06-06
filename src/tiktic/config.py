@@ -105,6 +105,25 @@ def load_app_config(path: str | Path | None = None) -> AppConfig:
     if "poll_interval_seconds" in data:
         cfg.poll_interval_seconds = int(data["poll_interval_seconds"])
 
+    # Notifiers
+    if "notifiers" in data:
+        n = data["notifiers"]
+        if "enabled" in n and isinstance(n["enabled"], list):
+            cfg.notifiers.enabled = [str(e).lower() for e in n["enabled"]]
+        if "discord_bot_token" in n:
+            cfg.notifiers.discord_bot_token = n["discord_bot_token"] or None
+        if "discord_channel_id" in n:
+            try:
+                cfg.notifiers.discord_channel_id = int(n["discord_channel_id"])
+            except (ValueError, TypeError):
+                pass
+        if "discord_webhook_url" in n:
+            cfg.notifiers.discord_webhook_url = n["discord_webhook_url"] or None
+        if "telegram_bot_token" in n:
+            cfg.notifiers.telegram_bot_token = n["telegram_bot_token"] or None
+        if "telegram_chat_id" in n:
+            cfg.notifiers.telegram_chat_id = str(n["telegram_chat_id"]) if n["telegram_chat_id"] else None
+
     print(f"[config] Loaded configuration from {config_path}")
     return cfg
 
@@ -150,8 +169,16 @@ seatgeek_enabled = true
 # Which notifiers to use. "console" is always added automatically for the dashboard.
 enabled = ["console", "discord", "telegram"]
 
-# For Discord: create a webhook in your server (Channel settings > Integrations > Webhooks)
-# discord_webhook_url = "https://discord.com/api/webhooks/123456/abcdef..."
+# Discord bot (recommended - supports interactive buttons and slash commands)
+# 1. Go to https://discord.com/developers/applications -> New Application -> Bot -> Create
+# 2. Enable "Message Content Intent" and "Server Members Intent" under Privileged Gateway Intents
+# 3. Invite the bot to your server with permissions: Send Messages, Embed Links, Use Slash Commands, Read Message History
+# 4. Copy the bot token below
+# discord_bot_token = "YOUR_BOT_TOKEN_HERE"
+# discord_channel_id = 1512744295310823474   # Target channel for alerts and commands
+
+# Legacy webhook (still works for simple sends, but no buttons/slash commands)
+# discord_webhook_url = "https://discord.com/api/webhooks/..."
 
 # For Telegram: create a bot with @BotFather, then get your chat id (message @userinfobot or the bot)
 # telegram_bot_token = "123456:ABC-DEF..."

@@ -205,6 +205,13 @@ class NotifierConfig(BaseModel):
         default_factory=lambda: ["discord", "telegram"],
         description="Which notifier backends to use. 'discord' and/or 'telegram'. Console always works.",
     )
+    # Discord bot (preferred over webhook for interactive buttons + slash commands)
+    discord_bot_token: str | None = None
+    discord_channel_id: int | None = Field(
+        default=1512744295310823474,
+        description="Target Discord channel ID for sending deal alerts and receiving slash commands.",
+    )
+    # Legacy webhook (kept for backward compat, but bot is recommended now)
     discord_webhook_url: str | None = None
     telegram_bot_token: str | None = None
     telegram_chat_id: str | None = None
